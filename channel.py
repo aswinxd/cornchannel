@@ -2,24 +2,18 @@ import os
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
-
 API_ID = '22710783'
 API_HASH = '616ea341acfed51f916506c20b8a0a44'
 BOT_TOKEN = '6992564545:AAEz2LhBcJpzcri4ElLB4w7Vs63NB8JG5Oo'
-
-
 MONGO_URI = "mongodb+srv://test:test@cluster0.q9llhnj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"  
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client['telegram_bot']
 channels_collection = db['channels']
-
-
 app = Client("custom_caption_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("Welcome to the Custom Caption Bot! Use /add <channel_id> to add a channel.")
-
+    await message.reply_text("Use /add <channel_id> to add a channel.")
 @app.on_message(filters.command("add"))
 async def add_channel(client, message):
     if len(message.command) < 2:
@@ -46,7 +40,6 @@ async def add_channel(client, message):
                 await msg.reply_text("Channel and custom caption added successfully!")
             except ValueError:
                 await msg.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
-
 @app.on_message(filters.channel)
 async def handle_channel_message(client, message):
     channel_id = str(message.chat.id)
@@ -68,7 +61,6 @@ async def handle_channel_message(client, message):
                 await message.edit_text(text=caption, reply_markup=reply_markup)
 
 
-         #   await message.edit(caption=caption, reply_markup=reply_markup)
-
-if __name__ == "__main__":
+         #   await message.edit(caption=caption, reply_markup=reply_markup
+    if __name__ == "__main__":
     app.run()
