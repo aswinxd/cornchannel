@@ -74,6 +74,26 @@ async def handle_caption_input(client, message):
         )
         await message.reply_text("Caption updated successfully!")
         del user_states[user_id]  
+        
+@app.on_message(filters.text & filters.private)
+async def handle_button_input(client, message):
+    user_id = message.from_user.id
+
+    if user_id in user_states and user_states[user_id]['action'] == 'add_button':
+        channel_id = user_states[user_id]['channel_id']
+        try:
+            button_text, button_url = message.text.split(',')
+            button_url = button_url.strip()
+
+            channels_collection.update_one(
+                {'channel_id': channel_id, 'user_id': user_id},
+                {'$set': {'button_text': button_text.strip(), 'button_url': button_url}},
+            )
+            await message.reply_text("Button updated successfully!")
+            del user_states[user_id]  
+        except ValueError:
+            await message.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
+    
 
 
 @app.on_message(filters.command("channels"))
