@@ -23,28 +23,33 @@ async def add_channel(client, message):
         await message.reply_text("Usage: /add <channel_id>")
         return
 
-    #channel_id = message.command[1]
-   # await message.reply_text(f"Please send the custom caption for channel {channel_id}:")
     channel_id = message.command[1]
     user_id = message.from_user.id
 
+    try:
+        chat = await client.get_chat(channel_id)
+        channel_name = chat.title
+    except Exception as e:
+        await message.reply_text(f"Failed to fetch channel details: {str(e)}")
+        return
+
     channels_collection.update_one(
         {'channel_id': channel_id, 'user_id': user_id},
-        {'$set': {'caption': '', 'button_text': '', 'button_url': ''}},
+        {'$set': {'channel_name': channel_name, 'caption': '', 'button_text': '', 'button_url': ''}},
         upsert=True
     )
 
-    await message.reply_text(f"Channel {channel_id} added. Use /set_caption {channel_id} to set a caption and /set_button {channel_id} to set a button.")
-
-@app.on_message(filters.command("set_caption"))
-async def set_caption(client, message):
+    await message.reply_text(f"Channel '{channel_name}' added. Use /channels to manage your channels.")
+    
+@app.on_message(filters.command("add_caption"))
+async def add_caption(client, message):
     if len(message.command) < 2:
-        await message.reply_text("Usage: /set_caption <channel_id>")
+        await message.reply_text("Usage: /add_caption <channel_id>")
         return
 
     channel_id = message.command[1]
     user_id = message.from_user.id
-    await message.reply_text("Please send the custom caption:")
+    await message.reply_text(f"Please send the custom caption for channel {channel_id}:")
 
     @app.on_message(filters.text & filters.private, group=1)
     async def get_caption(client, msg):
@@ -55,15 +60,15 @@ async def set_caption(client, message):
         )
         await msg.reply_text("Caption updated successfully!")
 
-@app.on_message(filters.command("set_button"))
-async def set_button(client, message):
+@app.on_message(filters.command("add_button"))
+async def add_button(client, message):
     if len(message.command) < 2:
-        await message.reply_text("Usage: /set_button <channel_id>")
+        await message.reply_text("Usage: /add_button <channel_id>")
         return
 
     channel_id = message.command[1]
     user_id = message.from_user.id
-    await message.reply_text("Please send the custom button text and URL in the format: ButtonText,URL")
+    await message.reply_text(f"Please send the custom button text and URL for channel {channel_id} in the format: ButtonText,URL")
 
     @app.on_message(filters.text & filters.private, group=2)
     async def get_button(client, msg):
@@ -76,7 +81,6 @@ async def set_button(client, message):
             await msg.reply_text("Button updated successfully!")
         except ValueError:
             await msg.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
-
 @app.on_message(filters.command("channels"))
 async def list_channels(client, message):
     user_id = message.from_user.id
@@ -84,13 +88,13 @@ async def list_channels(client, message):
     buttons = []
 
     for channel in channels:
-        buttons.append([InlineKeyboardButton(channel['channel_id'], callback_data=f"channel_{channel['channel_id']}")])
+        channel_name = channel.get('channel_name', 'Unknown Channel')
+        buttons.append([InlineKeyboardButton(channel_name, callback_data=f"channel_{channel['channel_id']}")])
 
     if buttons:
         await message.reply_text("Your channels:", reply_markup=InlineKeyboardMarkup(buttons))
     else:
         await message.reply_text("You have no channels added. Use /add <channel_id> to add a channel.")
-
 @app.on_callback_query(filters.regex(r"channel_(.*)"))
 async def channel_details(client, callback_query):
     channel_id = callback_query.data.split('_')[1]
