@@ -11,6 +11,7 @@ mongo_client = MongoClient(MONGO_URI)
 db = mongo_client['telegram_bot']
 channels_collection = db['channels']
 app = Client("custom_caption_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+user_states = {}
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
@@ -41,6 +42,7 @@ async def add_channel(client, message):
 
     await message.reply_text(f"Channel '{channel_name}' added. Use /channels to manage your channels.")
     
+
 @app.on_message(filters.command("add_caption"))
 async def add_caption(client, message):
     if len(message.command) < 2:
@@ -49,40 +51,26 @@ async def add_caption(client, message):
 
     channel_id = message.command[1]
     user_id = message.from_user.id
+
+    user_states[user_id] = {'action': 'add_caption', 'channel_id': channel_id}
     await message.reply_text(f"Please send the custom caption for channel {channel_id}:")
 
-    @app.on_message(filters.text & filters.private, group=1)
-    async def get_caption(client, msg):
-        caption = msg.text
+@app.on_message(filters.text & filters.private)
+async def handle_caption_input(client, message):
+    user_id = message.from_user.id
+
+    if user_id in user_states and user_states[user_id]['action'] == 'add_caption':
+        channel_id = user_states[user_id]['channel_id']
+        caption = message.text
+
         channels_collection.update_one(
             {'channel_id': channel_id, 'user_id': user_id},
             {'$set': {'caption': caption}},
         )
-        await msg.reply_text("Caption updated successfully!")
-        app.remove_handler(get_caption, group=1)
+        await message.reply_text("Caption updated successfully!")
+        del user_states[user_id]  
 
-@app.on_message(filters.command("add_button"))
-async def add_button(client, message):
-    if len(message.command) < 2:
-        await message.reply_text("Usage: /add_button <channel_id>")
-        return
 
-    channel_id = message.command[1]
-    user_id = message.from_user.id
-    await message.reply_text(f"Please send the custom button text and URL for channel {channel_id} in the format: ButtonText,URL")
-
-    @app.on_message(filters.text & filters.private, group=2)
-    async def get_button(client, msg):
-        try:
-            button_text, button_url = msg.text.split(',')
-            channels_collection.update_one(
-                {'channel_id': channel_id, 'user_id': user_id},
-                {'$set': {'button_text': button_text, 'button_url': button_url}},
-            )
-            await msg.reply_text("Button updated successfully!")
-            app.remove_handler(get_button, group=2)
-        except ValueError:
-            await msg.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
 @app.on_message(filters.command("channels"))
 async def list_channels(client, message):
     user_id = message.from_user.id
@@ -158,20 +146,21 @@ async def handle_channel_message(client, message):
     channel_id = str(message.chat.id)
     channel_data = channels_collection.find_one({'channel_id': channel_id})
 
-    if channel_data:
-        caption = channel_data.get('caption', '')
-        button_text = channel_data.get('button_text', '')
-        button_url = channel_data.get('button_url', '')
+    if channel_data and 'caption' in channel_data:
+        caption = channel_data['caption']
+        button_text = channel_data.get('button_text')
+        button_url = channel_data.get('button_url')
 
-        if caption and button_text and button_url:
-            reply_markup = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(button_text, url=button_url)]]
-            )
-
-            if message.media:
-                await message.edit_caption(caption=caption, reply_markup=reply_markup)
-            else:
+        if button_text and button_url:
+            try:
+                reply_markup = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(button_text, url=button_url)]]
+                )
                 await message.edit_text(text=caption, reply_markup=reply_markup)
-
+            except pyrogram.errors.exceptions.bad_request_400.ButtonUrlInvalid:
+                await message.reply_text("The button URL is invalid. Please check the URL format.")
+        else:
+            await message.edit_text(text=caption)
+            
 if __name__ == "__main__":
     app.run()
