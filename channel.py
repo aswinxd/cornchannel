@@ -59,6 +59,7 @@ async def add_caption(client, message):
             {'$set': {'caption': caption}},
         )
         await msg.reply_text("Caption updated successfully!")
+        app.remove_handler(get_caption, group=1)
 
 @app.on_message(filters.command("add_button"))
 async def add_button(client, message):
@@ -79,6 +80,7 @@ async def add_button(client, message):
                 {'$set': {'button_text': button_text, 'button_url': button_url}},
             )
             await msg.reply_text("Button updated successfully!")
+            app.remove_handler(get_button, group=2)
         except ValueError:
             await msg.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
 @app.on_message(filters.command("channels"))
