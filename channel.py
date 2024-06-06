@@ -96,20 +96,79 @@ async def handle_button_input(client, message):
     
 
 
-@app.on_message(filters.command("channels"))
+@app.on_message(filters.command("channels") & filters.private)
 async def list_channels(client, message):
     user_id = message.from_user.id
-    channels = channels_collection.find({'user_id': user_id})
+
+    user_channels = channels_collection.find({'user_id': user_id})
+
+    if user_channels.count() == 0:
+        await message.reply_text("You have not added any channels.")
+        return
+
+    
     buttons = []
+    for channel in user_channels:
+        channel_name = (await client.get_chat(channel['channel_id'])).title  # Fetch the channel name
+        buttons.append(
+            [InlineKeyboardButton(f"{channel_name} ({channel['channel_id']})", callback_data=f"manage_{channel['channel_id']}")]
+        )
 
-    for channel in channels:
-        channel_name = channel.get('channel_name', 'Unknown Channel')
-        buttons.append([InlineKeyboardButton(channel_name, callback_data=f"channel_{channel['channel_id']}")])
 
-    if buttons:
-        await message.reply_text("Your channels:", reply_markup=InlineKeyboardMarkup(buttons))
-    else:
-        await message.reply_text("You have no channels added. Use /add <channel_id> to add a channel.")
+    reply_markup = InlineKeyboardMarkup(buttons)
+
+    await message.reply_text("Your channels:", reply_markup=reply_markup)
+
+@app.on_callback_query(filters.regex(r"^manage_(\d+)$"))
+async def manage_channel(client, callback_query):
+    channel_id = callback_query.data.split("_")[1]
+    user_id = callback_query.from_user.id
+
+    # Fetch the channel details from the database
+    channel_data = channels_collection.find_one({'channel_id': channel_id, 'user_id': user_id})
+
+    if not channel_data:
+        await callback_query.answer("Channel not found or you do not have permission to manage this channel.", show_alert=True)
+        return
+
+    # Create buttons for editing caption, button, and removing the channel
+    buttons = [
+        [InlineKeyboardButton("Edit Caption", callback_data=f"edit_caption_{channel_id}")],
+        [InlineKeyboardButton("Edit Button", callback_data=f"edit_button_{channel_id}")],
+        [InlineKeyboardButton("Remove Channel", callback_data=f"remove_channel_{channel_id}")],
+        [InlineKeyboardButton("Back", callback_data="channels")]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(buttons)
+
+    await callback_query.message.edit_text(f"Manage channel {channel_data['channel_id']}:", reply_markup=reply_markup)
+
+@app.on_callback_query(filters.regex(r"^edit_caption_(\d+)$"))
+async def edit_caption_prompt(client, callback_query):
+    channel_id = callback_query.data.split("_")[1]
+    user_id = callback_query.from_user.id
+
+    user_states[user_id] = {'action': 'add_caption', 'channel_id': channel_id}
+    await callback_query.message.edit_text("Please send the new caption:")
+
+@app.on_callback_query(filters.regex(r"^edit_button_(\d+)$"))
+async def edit_button_prompt(client, callback_query):
+    channel_id = callback_query.data.split("_")[1]
+    user_id = callback_query.from_user.id
+
+    user_states[user_id] = {'action': 'add_button', 'channel_id': channel_id}
+    await callback_query.message.edit_text("Please send the new button text and URL in the format: ButtonText,URL")
+
+@app.on_callback_query(filters.regex(r"^remove_channel_(\d+)$"))
+async def remove_channel(client, callback_query):
+    channel_id = callback_query.data.split("_")[1]
+    user_id = callback_query.from_user.id
+
+    channels_collection.delete_one({'channel_id': channel_id, 'user_id': user_id})
+    await callback_query.message.edit_text("Channel removed successfully.")
+
+
+    await list_channels(client, callback_query.message)
 @app.on_callback_query(filters.regex(r"channel_(.*)"))
 async def channel_details(client, callback_query):
     channel_id = callback_query.data.split('_')[1]
