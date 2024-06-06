@@ -22,8 +22,6 @@ user_states = {}
 async def start(client, message):
     await message.reply_text("Use /add <channel_id> to add a channel.")
     
-
-
 @app.on_message(filters.command("add"))
 async def add_channel(client, message):
     if len(message.command) < 2:
@@ -49,16 +47,8 @@ async def set_caption(client, message):
 
     channel_id = message.command[1]
     user_id = message.from_user.id
+    user_states[user_id] = {'action': 'set_caption', 'channel_id': channel_id}
     await message.reply_text("Please send the custom caption:")
-
-    @app.on_message(filters.text & filters.private, group=1)
-    async def get_caption(client, msg):
-        caption = msg.text
-        channels_collection.update_one(
-            {'channel_id': channel_id, 'user_id': user_id},
-            {'$set': {'caption': caption}},
-        )
-        await msg.reply_text("Caption updated successfully!")
 
 @app.on_message(filters.command("set_button"))
 async def set_button(client, message):
@@ -68,19 +58,37 @@ async def set_button(client, message):
 
     channel_id = message.command[1]
     user_id = message.from_user.id
+    user_states[user_id] = {'action': 'set_button', 'channel_id': channel_id}
     await message.reply_text("Please send the custom button text and URL in the format: ButtonText,URL")
 
-    @app.on_message(filters.text & filters.private, group=2)
-    async def get_button(client, msg):
-        try:
-            button_text, button_url = msg.text.split(',')
+@app.on_message(filters.text & filters.private)
+async def handle_private_message(client, message):
+    user_id = message.from_user.id
+    if user_id in user_states:
+        state = user_states[user_id]
+        action = state.get('action')
+        channel_id = state.get('channel_id')
+
+        if action == 'set_caption':
+            caption = message.text
             channels_collection.update_one(
                 {'channel_id': channel_id, 'user_id': user_id},
-                {'$set': {'button_text': button_text, 'button_url': button_url}},
+                {'$set': {'caption': caption}},
             )
-            await msg.reply_text("Button updated successfully!")
-        except ValueError:
-            await msg.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
+            await message.reply_text("Caption updated successfully!")
+            del user_states[user_id]
+
+        elif action == 'set_button':
+            try:
+                button_text, button_url = message.text.split(',')
+                channels_collection.update_one(
+                    {'channel_id': channel_id, 'user_id': user_id},
+                    {'$set': {'button_text': button_text, 'button_url': button_url}},
+                )
+                await message.reply_text("Button updated successfully!")
+            except ValueError:
+                await message.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
+            del user_states[user_id]
 
 @app.on_message(filters.command("channels"))
 async def list_channels(client, message):
@@ -116,34 +124,15 @@ async def channel_details(client, callback_query):
 async def edit_caption(client, callback_query):
     channel_id = callback_query.data.split('_')[2]
     user_id = callback_query.from_user.id
+    user_states[user_id] = {'action': 'edit_caption', 'channel_id': channel_id}
     await callback_query.message.reply_text(f"Please send the new caption for channel {channel_id}:")
-
-    @app.on_message(filters.text & filters.private, group=3)
-    async def get_new_caption(client, msg):
-        caption = msg.text
-        channels_collection.update_one(
-            {'channel_id': channel_id, 'user_id': user_id},
-            {'$set': {'caption': caption}},
-        )
-        await msg.reply_text("Caption updated successfully!")
 
 @app.on_callback_query(filters.regex(r"edit_button_(.*)"))
 async def edit_button(client, callback_query):
     channel_id = callback_query.data.split('_')[2]
     user_id = callback_query.from_user.id
+    user_states[user_id] = {'action': 'edit_button', 'channel_id': channel_id}
     await callback_query.message.reply_text(f"Please send the new button text and URL for channel {channel_id} in the format: ButtonText,URL")
-
-    @app.on_message(filters.text & filters.private, group=4)
-    async def get_new_button(client, msg):
-        try:
-            button_text, button_url = msg.text.split(',')
-            channels_collection.update_one(
-                {'channel_id': channel_id, 'user_id': user_id},
-                {'$set': {'button_text': button_text, 'button_url': button_url}},
-            )
-            await msg.reply_text("Button updated successfully!")
-        except ValueError:
-            await msg.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
 
 @app.on_callback_query(filters.regex(r"remove_channel_(.*)"))
 async def remove_channel(client, callback_query):
