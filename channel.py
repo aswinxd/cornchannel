@@ -22,7 +22,8 @@ user_states = {}
 async def start(client, message):
     await message.reply_text("Use /add <channel_id> to add a channel.")
     
-    
+
+
 @app.on_message(filters.command("add"))
 async def add_channel(client, message):
     if len(message.command) < 2:
@@ -32,13 +33,13 @@ async def add_channel(client, message):
     channel_id = message.command[1]
     user_id = message.from_user.id
 
-    try:
-        chat = await client.get_chat(channel_id)
-        channel_name = chat.title
-    except Exception as e:
-        await message.reply_text(f"Failed to fetch channel details: {str(e)}")
-        return
+    channels_collection.update_one(
+        {'channel_id': channel_id, 'user_id': user_id},
+        {'$set': {'caption': '', 'button_text': '', 'button_url': ''}},
+        upsert=True
+    )
 
+    await message.reply_text(f"Channel {channel_id} added. Use /set_caption {channel_id} to set a caption and /set_button {channel_id} to set a button.")
 
 @app.on_message(filters.command("set_caption"))
 async def set_caption(client, message):
