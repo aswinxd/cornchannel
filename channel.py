@@ -18,6 +18,20 @@ channels_collection = db['channels']
 app = Client("custom_caption_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 user_states = {}
 
+@app.on_message(filters.command("channels"))
+async def list_channels(client, message):
+    user_id = message.from_user.id
+    channels = channels_collection.find({'user_id': user_id})
+    buttons = []
+
+    for channel in channels:
+        buttons.append([InlineKeyboardButton(channel['channel_id'], callback_data=f"channel_{channel['channel_id']}")])
+
+    if buttons:
+        await message.reply_text("Your channels:", reply_markup=InlineKeyboardMarkup(buttons))
+    else:
+        await message.reply_text("You have no channels added. Use /add <channel_id> to add a channel.")
+        
 @app.on_message(filters.command("start"))
 async def start(client, message):
     await message.reply_text("Use /add <channel_id> to add a channel.")
@@ -90,19 +104,6 @@ async def handle_private_message(client, message):
                 await message.reply_text("Invalid format. Please send the custom button text and URL in the format: ButtonText,URL")
             del user_states[user_id]
 
-@app.on_message(filters.command("channels"))
-async def list_channels(client, message):
-    user_id = message.from_user.id
-    channels = channels_collection.find({'user_id': user_id})
-    buttons = []
-
-    for channel in channels:
-        buttons.append([InlineKeyboardButton(channel['channel_id'], callback_data=f"channel_{channel['channel_id']}")])
-
-    if buttons:
-        await message.reply_text("Your channels:", reply_markup=InlineKeyboardMarkup(buttons))
-    else:
-        await message.reply_text("You have no channels added. Use /add <channel_id> to add a channel.")
 
 @app.on_callback_query(filters.regex(r"channel_(.*)"))
 async def channel_details(client, callback_query):
