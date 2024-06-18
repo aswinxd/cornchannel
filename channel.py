@@ -44,15 +44,22 @@ async def add_channel(client, message):
 
     channel_id = message.command[1]
     user_id = message.from_user.id
+    
+    # Fetch channel information
+    try:
+        chat = await client.get_chat(channel_id)
+        channel_name = chat.title
+    except Exception as e:
+        await message.reply_text(f"Failed to add channel: {str(e)}")
+        return
 
     channels_collection.update_one(
         {'channel_id': channel_id, 'user_id': user_id},
-        {'$set': {'caption': '', 'button_text': '', 'button_url': ''}},
+        {'$set': {'channel_name': channel_name, 'caption': '', 'button_text': '', 'button_url': ''}},
         upsert=True
     )
 
-    await message.reply_text(f"Channel {channel_id} added. Use /set_caption {channel_id} to set a caption and /set_button {channel_id} to set a button.")
-
+    await message.reply_text(f"Channel {channel_name} ({channel_id}) added. Use /set_caption {channel_id} to set a caption and /set_button {channel_id} to set a button.")
 @app.on_message(filters.command("set_caption"))
 async def set_caption(client, message):
     if len(message.command) < 2:
