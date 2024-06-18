@@ -25,13 +25,13 @@ async def list_channels(client, message):
     buttons = []
 
     for channel in channels:
-        buttons.append([InlineKeyboardButton(channel['channel_id'], callback_data=f"channel_{channel['channel_id']}")])
+        channel_name = channel.get('channel_name', 'Unknown')
+        buttons.append([InlineKeyboardButton(f"{channel_name} ({channel['channel_id']})", callback_data=f"channel_{channel['channel_id']}")])
 
     if buttons:
         await message.reply_text("Your channels:", reply_markup=InlineKeyboardMarkup(buttons))
     else:
         await message.reply_text("You have no channels added. Use /add <channel_id> to add a channel.")
-        
 @app.on_message(filters.command("start"))
 async def start(client, message):
     await message.reply_text("Use /add <channel_id> to add a channel.")
