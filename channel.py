@@ -158,8 +158,9 @@ async def handle_channel_message(client, message):
 
             if message.media:
                 await message.edit_caption(caption=caption, reply_markup=reply_markup)
-            else:
-                await message.edit_text(text=caption, reply_markup=reply_markup)
+            
+            # else:
+            #     await message.edit_text(text=caption, reply_markup=reply_markup)
 
 if __name__ == "__main__":
     app.run()
