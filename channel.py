@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 
 API_ID = '22710783'
 API_HASH = '616ea341acfed51f916506c20b8a0a44'
-BOT_TOKEN = '7212369479:AAHD0FfwXkzWcax_hjbMJ1xA4VLaI9mKjtg'
+BOT_TOKEN = '6762340943:AAHrbrMnDIZNAAN709sRDJK27AaMLc43Fcs'
 MONGO_URI = "mongodb+srv://test:test@cluster0.q9llhnj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"  
 mongo_client = MongoClient(MONGO_URI)
-db = mongo_client['telegram_bot']
-channels_collection = db['channels']
+db = mongo_client['bot2']
+channels_collection = db['channels2']
 app = Client("custom_caption_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 user_states = {}
 
@@ -59,7 +59,7 @@ async def add_channel(client, message):
         upsert=True
     )
 
-    await message.reply_text(f"Channel {channel_name} ({channel_id}) added. Use /set_caption {channel_id} to set a caption and /set_button {channel_id} to set a button.")
+    await message.reply_text(f"Channel {channel_name} ({channel_id}) added. Use `/set_caption {channel_id}` to set a caption and `/set_button {channel_id}` to set a button.")
 @app.on_message(filters.command("set_caption"))
 async def set_caption(client, message):
     if len(message.command) < 2:
